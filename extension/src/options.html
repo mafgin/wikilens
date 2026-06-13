@@ -4,84 +4,92 @@
     <meta charset="utf-8" />
     <title>WikiLens — Settings</title>
     <style>
+      :root {
+        --bg: #fff;
+        --bg-subtle: #f8f9fa;
+        --border: #c8ccd1;
+        --border-muted: #eaecf0;
+        --text: #202122;
+        --text-subtle: #54595d;
+        --text-muted: #72777d;
+        --link: #3366cc;
+        --link-hover: #2a4b8d;
+      }
       body {
-        font-family: -apple-system, system-ui, "Segoe UI", sans-serif;
-        background: #0a0e1a;
-        color: #f8fafc;
+        font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
         margin: 0;
-        padding: 28px;
-        max-width: 520px;
+        padding: 32px;
+        max-width: 560px;
+        line-height: 1.5;
       }
       h1 {
-        font-size: 15px;
+        font-family: Georgia, "Linux Libertine", serif;
+        font-size: 22px;
+        font-weight: 400;
         margin: 0 0 4px 0;
-        color: #60a5fa;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
       }
       p.hint {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.5);
-        margin: 0 0 22px 0;
-        line-height: 1.55;
+        font-size: 13px;
+        color: var(--text-subtle);
+        margin: 14px 0 24px 0;
       }
       label {
         display: block;
-        font-size: 11px;
-        color: rgba(255, 255, 255, 0.6);
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        margin: 18px 0 6px 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        margin: 22px 0 6px 0;
       }
       .sublabel {
-        font-size: 11px;
-        color: rgba(255, 255, 255, 0.35);
-        margin: 4px 0 0 0;
-        line-height: 1.4;
-        text-transform: none;
-        letter-spacing: 0;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 5px 0 0 0;
       }
-      select,
-      input[type="text"] {
+      select {
         width: 100%;
         box-sizing: border-box;
-        background: #0f1420;
-        color: #f8fafc;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 6px;
-        padding: 9px 10px;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 8px 10px;
         font-size: 13px;
         font-family: inherit;
         outline: none;
       }
-      select:focus,
-      input:focus {
-        border-color: rgba(96, 165, 250, 0.6);
+      select:focus {
+        border-color: var(--link);
+        box-shadow: 0 0 0 2px var(--bg-subtle);
       }
       button {
-        margin-top: 22px;
-        padding: 9px 18px;
-        background: #60a5fa;
-        color: #0a0e1a;
-        border: none;
-        border-radius: 6px;
+        margin-top: 26px;
+        padding: 8px 20px;
+        background: var(--link);
+        color: #fff;
+        border: 1px solid var(--link);
+        border-radius: 3px;
         font-size: 13px;
-        font-weight: 600;
+        font-weight: 500;
         font-family: inherit;
         cursor: pointer;
+        transition: background-color 150ms, border-color 150ms;
       }
       button:hover {
-        filter: brightness(1.1);
+        background: var(--link-hover);
+        border-color: var(--link-hover);
       }
       .status {
         margin-top: 14px;
-        font-size: 12px;
-        font-family: ui-monospace, monospace;
-        min-height: 16px;
-        color: rgba(255, 255, 255, 0.5);
+        font-size: 13px;
+        min-height: 18px;
+        color: var(--text-subtle);
       }
       .status.ok {
-        color: #22c55e;
+        color: #14866d;
       }
     </style>
   </head>
