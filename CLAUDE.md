@@ -1,7 +1,8 @@
 # WikiLens — Cross-Language Wikipedia Comparator
 
-> **Cold start: read `ONBOARDING.md` first** — live status + next steps. This
-> file is the durable reference for what WikiLens is and how it's built.
+> **Cold start: read `HANDOVER.md` first** — live status, what's done, next
+> steps (the 9-section snapshot). This file is the durable reference for what
+> WikiLens is and how it's built; `ONBOARDING.md` is the human install tour.
 
 ## What
 
