@@ -183,8 +183,14 @@
 
   /* --------------------------- persistence --------------------------- */
 
-  function saveState() {
-    browser.storage.local.set({ wlActive: isOpen, wlLangs: desired.slice() });
+  // Persist the two pieces SEPARATELY. Opening the pane must never write
+  // wlLangs — on a fresh page `desired` is still [] until initLanguages() loads
+  // it, so a combined save would wipe the saved selection before reading it.
+  function saveActive() {
+    browser.storage.local.set({ wlActive: isOpen });
+  }
+  function saveLangs() {
+    browser.storage.local.set({ wlLangs: desired.slice() });
   }
 
   /* ----------------------------- open/close -------------------------- */
@@ -196,12 +202,12 @@
       document.documentElement.classList.add(SPLIT_CLASS);
       host.style.display = "block";
       balanceWidth();
-      saveState();
+      saveActive();
       await initLanguages();
     } else if (host) {
       host.style.display = "none";
       document.documentElement.classList.remove(SPLIT_CLASS);
-      saveState();
+      saveActive();
     }
     return isOpen;
   }
@@ -271,7 +277,7 @@
   // User picked a language from the "+" menu → add it to the comparison set.
   function chooseLanguage(lang) {
     if (!desired.includes(lang)) desired.push(lang);
-    saveState();
+    saveLangs();
     openColumn(lang);
   }
 
@@ -315,7 +321,7 @@
       if (i >= 0) order.splice(i, 1);
     }
     desired = desired.filter((l) => l !== lang); // explicit close removes from the set
-    saveState();
+    saveLangs();
     populatePicker();
     balanceWidth();
     if (!order.length) togglePicker(true);
