@@ -173,11 +173,22 @@
   // Drop navigation chrome but KEEP the article's structure (headings, images,
   // infobox, tables, lists). Absolutise links + image URLs so they resolve
   // outside their wiki. Returns a detached element to import into the pane.
+  // Strip in-article navigation chrome but KEEP real content (prose, images,
+  // infobox, content tables). ARIA roles are the most reliable signal because
+  // they're identical across languages: role="navigation" = navboxes/sidebars,
+  // role="note" = hatnotes/message boxes. The class list is a belt-and-braces
+  // fallback for wikis that omit the roles.
   const STRIP = [
-    "script", "style", ".mw-editsection", ".mw-jump-link", "sup.reference",
-    ".navbox", ".vector-toc", "#toc", ".toc", ".mw-empty-elt", ".noprint",
-    "ol.references", ".reflist", ".mw-references-wrap", ".sistersitebox",
+    "script", "style", "link", "meta",
+    ".mw-editsection", ".mw-jump-link",
+    'sup.reference', "ol.references", ".reflist", ".mw-references-wrap", ".refbegin", ".refend",
+    ".navbox", ".navbox-styles", ".vertical-navbox", ".sidebar", ".side-box", ".sidebar-content",
+    ".portal", ".portalbox", ".sistersitebox",
+    ".hatnote", ".dablink", ".rellink", ".shortdescription",
+    ".ambox", ".mbox", ".ombox", ".tmbox", ".cmbox", ".fmbox", ".dmbox", ".metadata",
+    ".vector-toc", "#toc", ".toc", ".mw-empty-elt", ".noprint", ".nomobile",
     ".navigation-not-searchable", ".printfooter", ".catlinks", ".mw-hidden-catlinks",
+    '[role="navigation"]', '[role="note"]',
   ].join(",");
 
   function buildArticleNode(html, lang) {
