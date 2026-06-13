@@ -63,6 +63,8 @@
     .wl-colhead { display:flex; align-items:center; gap:8px; padding:5px 10px; background:#f1f5f9;
       border-bottom:1px solid #e2e8f0; font-size:12px; color:#0f172a; }
     .wl-colname { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .wl-collang { font-weight:600; font-size:12px; border:1px solid #cbd5e1; border-radius:4px;
+      background:#fff; color:#0f172a; padding:2px 6px; max-width:170px; cursor:pointer; }
     .wl-colstatus { flex:1; font-size:11px; color:#2563eb; font-family:ui-monospace,monospace;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .wl-colstatus.err { color:#dc2626; }
@@ -287,27 +289,76 @@
     const target = langlinks.find((l) => l.lang === lang);
     if (!target) return;
 
+    const langSel = mk("select", { class: "wl-collang", title: "Switch this column's language" });
     const status = mk("span", { class: "wl-colstatus" });
     const body = mk("article", { class: "wl-article", dir: "auto" });
     const close = mk("span", { class: "wl-colclose", title: "Close", text: "✕" });
     const col = mk("div", { class: "wl-col" }, [
-      mk("div", { class: "wl-colhead" }, [
-        mk("span", { class: "wl-colname", text: target.autonym }),
-        status,
-        close,
-      ]),
+      mk("div", { class: "wl-colhead" }, [langSel, status, close]),
       body,
     ]);
     el("wl-articles").appendChild(col);
     if (ro) ro.observe(col);
 
-    const pane = { lang, title: target.title, autonym: target.autonym, col, body, status, loading: true };
+    const pane = { lang, title: target.title, autonym: target.autonym, col, body, status, langSel, loading: true };
     panes.set(lang, pane);
     order.push(lang);
-    close.addEventListener("click", () => closeColumn(lang));
+
+    fillColLangSelect(pane);
+    langSel.addEventListener("change", (e) => switchColumnLang(pane, e.target.value));
+    close.addEventListener("click", () => closeColumn(pane.lang));
+    refreshColLangSelects(); // other columns' available sets changed
     populatePicker();
     balanceWidth();
 
+    loadPane(pane).catch((e) => setColStatus(pane, "error: " + e.message, true));
+  }
+
+  // The per-column language dropdown lists every parallel edition except those
+  // already open in OTHER columns (its own current language stays selectable).
+  function fillColLangSelect(pane) {
+    const sel = pane.langSel;
+    const openElsewhere = new Set([...panes.keys()].filter((l) => l !== pane.lang));
+    sel.replaceChildren();
+    langlinks
+      .filter((l) => l.lang === pane.lang || !openElsewhere.has(l.lang))
+      .forEach((l) => {
+        const op = document.createElement("option");
+        op.value = l.lang;
+        op.textContent = l.autonym;
+        if (l.lang === pane.lang) op.selected = true;
+        sel.appendChild(op);
+      });
+  }
+
+  function refreshColLangSelects() {
+    panes.forEach((p) => fillColLangSelect(p));
+  }
+
+  // Change an existing column's language in place — re-key it, update the chosen
+  // set (so navigation carries the new language), and reload the article.
+  function switchColumnLang(pane, newLang) {
+    if (!newLang || newLang === pane.lang) return;
+    const target = langlinks.find((l) => l.lang === newLang);
+    if (!target || panes.has(newLang)) {
+      fillColLangSelect(pane); // revert the dropdown
+      return;
+    }
+    const di = desired.indexOf(pane.lang);
+    if (di >= 0) desired[di] = newLang;
+    else desired.push(newLang);
+
+    panes.delete(pane.lang);
+    const oi = order.indexOf(pane.lang);
+    if (oi >= 0) order[oi] = newLang;
+    pane.lang = newLang;
+    pane.title = target.title;
+    pane.autonym = target.autonym;
+    panes.set(newLang, pane);
+
+    saveLangs();
+    refreshColLangSelects();
+    populatePicker();
     loadPane(pane).catch((e) => setColStatus(pane, "error: " + e.message, true));
   }
 
@@ -322,6 +373,7 @@
     }
     desired = desired.filter((l) => l !== lang); // explicit close removes from the set
     saveLangs();
+    refreshColLangSelects(); // the freed language is now available to other columns
     populatePicker();
     balanceWidth();
     if (!order.length) togglePicker(true);
