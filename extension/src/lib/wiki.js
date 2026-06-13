@@ -212,6 +212,24 @@
         );
       }
     });
+
+    // Strip the source article's hard-coded direction so the column can follow
+    // the READING language's direction — translating he/ar → en must flip the
+    // whole layout (text, floats, infobox side) to LTR, not just the words.
+    root.removeAttribute("dir");
+    root.removeAttribute("lang");
+    root.querySelectorAll("[dir]").forEach((e) => e.removeAttribute("dir"));
+    root.querySelectorAll("[style]").forEach((e) => {
+      const s = e.getAttribute("style");
+      if (/direction\s*:/i.test(s) || /text-align\s*:\s*(right|left)/i.test(s)) {
+        const cleaned = s
+          .replace(/direction\s*:[^;]*;?/gi, "")
+          .replace(/text-align\s*:\s*(right|left)[^;]*;?/gi, "");
+        if (cleaned.trim()) e.setAttribute("style", cleaned);
+        else e.removeAttribute("style");
+      }
+    });
+
     return document.importNode(root, true);
   }
 

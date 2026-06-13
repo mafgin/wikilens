@@ -48,9 +48,11 @@
     return t;
   }
 
-  // Translate an array of strings on-device, with bounded concurrency so a big
-  // article doesn't crawl through hundreds of sequential calls.
-  async function translateBuiltinTexts(texts, src, dst, onProgress, onDownload) {
+  // Translate an array of strings on-device with bounded concurrency. Workers
+  // pull in array order, so when the caller passes blocks in document order the
+  // top of the article finishes first. `onResult(i, text)` fires per block so
+  // the caller can paint each paragraph the moment it's ready (progressive).
+  async function translateBuiltinTexts(texts, src, dst, onProgress, onDownload, onResult) {
     const t = await getTranslator(src, dst, onDownload);
     const out = new Array(texts.length);
     let next = 0;
@@ -64,8 +66,9 @@
         } catch {
           out[i] = texts[i];
         }
+        if (onResult) onResult(i, out[i]);
         done++;
-        if (onProgress && done % 8 === 0) onProgress(done, texts.length);
+        if (onProgress && done % 4 === 0) onProgress(done, texts.length);
       }
     }
     await Promise.all(Array.from({ length: CONC }, worker));
