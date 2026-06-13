@@ -59,3 +59,10 @@ the translation engine (auto / on-device only / free online fallback).
   fail; on-device Chrome/Edge is the robust path.
 - WikiLens is for comparison and reading. Machine translation can paraphrase —
   for anything load-bearing, check the original.
+
+## License
+
+**PolyForm Noncommercial License 1.0.0** — see [`LICENSE.md`](LICENSE.md). You're
+free to use, modify, and share WikiLens for **noncommercial purposes**. Note this
+is a *source-available* license, not OSI/FSF "open source" in the strict sense,
+because it restricts commercial use.
