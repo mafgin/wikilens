@@ -20,7 +20,7 @@
 
   const SPLIT_CLASS = "wikilens-split-active";
   const PANE_ID = "wikilens-pane";
-  const NARROW_PX = 360;
+  const MOBILE_PX = 540; // below this column width, force a mobile/stacked layout
   const BLOCK_SEL =
     "p,li,h1,h2,h3,h4,h5,caption,th,td,dt,dd,blockquote,figcaption,.thumbcaption,.gallerytext";
 
@@ -72,7 +72,10 @@
     .wl-colclose:hover { opacity:1; }
 
     .wl-article { flex:1; overflow:auto; padding:14px 18px 60px; color:#202122; background:#fff;
-      font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; line-height:1.65; }
+      font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; line-height:1.65;
+      overflow-wrap:break-word; }
+    .wl-article .wl-tablescroll { overflow-x:auto; max-width:100%; margin:1em 0; }
+    .wl-article table { max-width:100%; }
     .wl-article .wl-arttitle { font-family:Georgia,'Linux Libertine',serif; font-size:24px;
       font-weight:normal; margin:0 0 .4em; padding-bottom:.2em; border-bottom:1px solid #a2a9b1; color:#000; }
     .wl-article h2 { font-family:Georgia,serif; font-size:19px; font-weight:normal;
@@ -93,11 +96,25 @@
     .wl-article ul, .wl-article ol { margin:.4em 0; padding-inline-start:1.5em; }
     .wl-article blockquote { border-inline-start:3px solid #c8ccd1; margin:.6em 0; padding-inline-start:12px; color:#54595d; }
 
-    .wl-col.narrow .wl-article { padding:10px 12px 40px; font-size:13px; }
-    .wl-col.narrow .wl-article table.infobox { float:none; max-width:none; width:auto; margin:.6em 0; }
-    .wl-col.narrow .wl-article .thumb,
-    .wl-col.narrow .wl-article .tright,
-    .wl-col.narrow .wl-article .tleft { float:none !important; width:auto !important; max-width:100%; margin:.5em 0; }
+    /* below MOBILE_PX: force a single-column, no-float mobile layout */
+    .wl-col.mobile .wl-article { padding:10px 13px 40px; font-size:13px; }
+    .wl-col.mobile .wl-article .wl-arttitle { font-size:21px; }
+    .wl-col.mobile .wl-article h2 { font-size:17px; }
+    .wl-col.mobile .wl-article table.infobox { float:none !important; max-width:100% !important;
+      width:auto !important; margin:.6em 0 !important; font-size:12px; }
+    .wl-col.mobile .wl-article .thumb,
+    .wl-col.mobile .wl-article figure,
+    .wl-col.mobile .wl-article .tright,
+    .wl-col.mobile .wl-article .tleft,
+    .wl-col.mobile .wl-article .floatright,
+    .wl-col.mobile .wl-article .floatleft,
+    .wl-col.mobile .wl-article .mw-halign-right,
+    .wl-col.mobile .wl-article .mw-halign-left {
+      float:none !important; width:auto !important; max-width:100% !important; margin:.6em 0 !important; }
+    .wl-col.mobile .wl-article [style*="width"] { max-width:100% !important; }
+    .wl-col.mobile .wl-article [style*="column-count"],
+    .wl-col.mobile .wl-article .references,
+    .wl-col.mobile .wl-article .div-col { column-count:1 !important; column-width:auto !important; }
 
     .wl-resize { position:absolute; left:0; top:0; bottom:0; width:8px; cursor:col-resize;
       background:transparent; z-index:5; }
@@ -179,7 +196,7 @@
     initResize(el("wl-resize"));
 
     ro = new ResizeObserver((entries) => {
-      entries.forEach((en) => en.target.classList.toggle("narrow", en.contentRect.width < NARROW_PX));
+      entries.forEach((en) => en.target.classList.toggle("mobile", en.contentRect.width < MOBILE_PX));
     });
   }
 

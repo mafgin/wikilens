@@ -241,6 +241,16 @@
       }
     });
 
+    // Wrap wide content tables in a horizontal-scroll box so they can't blow out
+    // a narrow column's width (infoboxes are left alone — they stack via CSS).
+    root.querySelectorAll("table").forEach((t) => {
+      if (t.classList.contains("infobox") || t.closest(".wl-tablescroll")) return;
+      const wrap = doc.createElement("div");
+      wrap.className = "wl-tablescroll";
+      t.parentNode.insertBefore(wrap, t);
+      wrap.appendChild(t);
+    });
+
     return document.importNode(root, true);
   }
 
