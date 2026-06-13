@@ -1,16 +1,14 @@
 /**
  * Translation providers. Two free paths, no API key, no per-user cost:
  *
- *   ChromeBuiltinProvider — Chrome/Edge 138+ on-device Translator API. Free,
- *     private, covers Hebrew/Russian/Arabic. Runs in the CONTENT context (a
- *     real window) where the global is reliably exposed.
+ *   Chrome built-in on-device Translator API (Chrome/Edge 138+) — free, private,
+ *     covers Hebrew/Russian/Arabic. Runs in the CONTENT context.
+ *   Google free keyless endpoint — Firefox fallback. Runs in the BACKGROUND
+ *     (cross-origin needs host_permissions). Unofficial / fragile — weak link.
  *
- *   GoogleFreeProvider — keyless translate.googleapis.com endpoint. The Firefox
- *     fallback (Mozilla's on-device engine lacks Hebrew/Arabic). Unofficial /
- *     fragile — documented weak link. Runs in the BACKGROUND context where the
- *     extension's host_permissions grant the cross-origin fetch.
- *
- * This file is loaded in both contexts; each context calls the half it needs.
+ * Both expose a `*Texts(strings[]) -> strings[]` shape: the renderer collects the
+ * unique strings of an article and translates them in one pass, then writes them
+ * back in place so Wikipedia's structure/styling is preserved.
  */
 (function () {
   const WL = (globalThis.WL = globalThis.WL || {});
@@ -50,19 +48,28 @@
     return t;
   }
 
-  async function translateBuiltin(blocks, src, dst, onProgress, onDownload) {
+  // Translate an array of strings on-device, with bounded concurrency so a big
+  // article doesn't crawl through hundreds of sequential calls.
+  async function translateBuiltinTexts(texts, src, dst, onProgress, onDownload) {
     const t = await getTranslator(src, dst, onDownload);
-    const out = [];
-    for (let i = 0; i < blocks.length; i++) {
-      let text = blocks[i].text;
-      try {
-        text = await t.translate(blocks[i].text);
-      } catch {
-        // keep source text for this block rather than abort the whole article
+    const out = new Array(texts.length);
+    let next = 0;
+    let done = 0;
+    const CONC = 6;
+    async function worker() {
+      while (next < texts.length) {
+        const i = next++;
+        try {
+          out[i] = await t.translate(texts[i]);
+        } catch {
+          out[i] = texts[i];
+        }
+        done++;
+        if (onProgress && done % 8 === 0) onProgress(done, texts.length);
       }
-      out.push({ tag: blocks[i].tag, text });
-      if (onProgress) onProgress(i + 1, blocks.length);
     }
+    await Promise.all(Array.from({ length: CONC }, worker));
+    if (onProgress) onProgress(texts.length, texts.length);
     return out;
   }
 
@@ -98,19 +105,16 @@
     return results.join("");
   }
 
-  async function googleTranslateBatch(blocks, src, dst, onProgress) {
+  async function googleTranslateTexts(texts, src, dst, onProgress) {
     const out = [];
-    for (let i = 0; i < blocks.length; i++) {
-      let text = blocks[i].text;
+    for (let i = 0; i < texts.length; i++) {
       try {
-        text = await googleOne(blocks[i].text, src, dst);
+        out.push(await googleOne(texts[i], src, dst));
       } catch {
-        // leave original text for this block on failure
+        out.push(texts[i]);
       }
-      out.push({ tag: blocks[i].tag, text });
-      if (onProgress) onProgress(i + 1, blocks.length);
-      // gentle pacing to avoid an IP rate-limit on the unofficial endpoint
-      await new Promise((r) => setTimeout(r, 120));
+      if (onProgress) onProgress(i + 1, texts.length);
+      await new Promise((r) => setTimeout(r, 90)); // pace the unofficial endpoint
     }
     return out;
   }
@@ -118,7 +122,7 @@
   WL.providers = {
     builtinAvailable,
     builtinStatus,
-    translateBuiltin,
-    googleTranslateBatch,
+    translateBuiltinTexts,
+    googleTranslateTexts,
   };
 })();

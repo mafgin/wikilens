@@ -33,8 +33,8 @@ async function handle(msg) {
     case "cache-put":
       await WL.cache.put(msg.meta, msg.value);
       return { ok: true };
-    case "translate-google":
-      return { blocks: await WL.providers.googleTranslateBatch(msg.blocks, msg.src, msg.dst) };
+    case "translate-google-texts":
+      return { texts: await WL.providers.googleTranslateTexts(msg.texts, msg.src, msg.dst) };
     default:
       return { error: "unknown message" };
   }

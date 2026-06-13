@@ -150,11 +150,78 @@
       .trim();
   }
 
+  // Fetch the article keeping its full HTML (structure + images + infobox +
+  // tables) so the right pane can look like real Wikipedia, not stripped prose.
+  async function fetchArticleHtml(lang, title) {
+    const data = await apiGet(lang, {
+      action: "parse",
+      page: title,
+      prop: "text|revid|displaytitle",
+      formatversion: "2",
+      redirects: "1",
+    });
+    if (data.error) throw new Error(data.error.info || "parse failed");
+    return {
+      lang,
+      title,
+      revid: (data.parse && data.parse.revid) || 0,
+      displayTitle: stripTags((data.parse && data.parse.displaytitle) || title),
+      html: (data.parse && data.parse.text) || "",
+    };
+  }
+
+  // Drop navigation chrome but KEEP the article's structure (headings, images,
+  // infobox, tables, lists). Absolutise links + image URLs so they resolve
+  // outside their wiki. Returns a detached element to import into the pane.
+  const STRIP = [
+    "script", "style", ".mw-editsection", ".mw-jump-link", "sup.reference",
+    ".navbox", ".vector-toc", "#toc", ".toc", ".mw-empty-elt", ".noprint",
+    "ol.references", ".reflist", ".mw-references-wrap", ".sistersitebox",
+    ".navigation-not-searchable", ".printfooter", ".catlinks", ".mw-hidden-catlinks",
+  ].join(",");
+
+  function buildArticleNode(html, lang) {
+    const base = `https://${lang}.wikipedia.org`;
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const root = doc.querySelector(".mw-parser-output") || doc.body;
+    root.querySelectorAll(STRIP).forEach((e) => e.remove());
+
+    const fixUrl = (u) =>
+      !u ? u : u.startsWith("//") ? "https:" + u : u.startsWith("/") ? base + u : u;
+
+    root.querySelectorAll("a[href]").forEach((a) => {
+      const href = a.getAttribute("href");
+      if (href && href.startsWith("/")) a.setAttribute("href", base + href);
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
+    });
+    root.querySelectorAll("img[src]").forEach((img) => {
+      img.setAttribute("src", fixUrl(img.getAttribute("src")));
+      img.removeAttribute("loading");
+      const ss = img.getAttribute("srcset");
+      if (ss) {
+        img.setAttribute(
+          "srcset",
+          ss
+            .split(",")
+            .map((s) => {
+              const [u, d] = s.trim().split(/\s+/);
+              return fixUrl(u) + (d ? " " + d : "");
+            })
+            .join(", ")
+        );
+      }
+    });
+    return document.importNode(root, true);
+  }
+
   WL.wiki = {
     getCurrentArticle,
     isArticlePage,
     fetchLangLinks,
     fetchArticle,
+    fetchArticleHtml,
+    buildArticleNode,
     cleanHtmlToBlocks,
   };
 })();
