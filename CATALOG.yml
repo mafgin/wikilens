@@ -1,0 +1,44 @@
+kind: service
+metadata:
+  name: wikilens
+  description: >-
+    Public Chrome + Firefox browser extension. Splits the window and shows the
+    current Wikipedia article from another language edition, machine-translated
+    side-by-side, to expose how different language editions frame the same topic.
+    Fully client-side — no backend, no API key, zero per-user cost.
+  status: building
+  owner: yosef
+  phase: 1-mvp-translate-only
+  repo: Projects/wikilens
+  surfaces:
+    - chrome-edge (MV3, on-device Translator API)
+    - firefox (MV3, free keyless Google fallback)
+dependencies:
+  - Chrome/Edge 138+ for the built-in on-device Translator API (desktop only)
+  - Firefox 140+ (data_collection_permissions key); on-device engine lacks
+    Hebrew/Arabic so Firefox uses the free Google endpoint
+  - Wikipedia MediaWiki API (langlinks + parse), public + CORS, no key
+integrations:
+  - name: mediawiki-api
+    direction: outbound
+    target: https://*.wikipedia.org/w/api.php (action=query&prop=langlinks; action=parse)
+    contract: public CORS API, origin=*, no key — runs from the user's browser
+  - name: chrome-translator-api
+    direction: local
+    target: window.Translator (Chrome/Edge 138+ on-device)
+    contract: free on-device translation; nothing leaves the browser
+  - name: google-free-fallback
+    direction: outbound
+    target: https://translate.googleapis.com/translate_a/single?client=gtx
+    contract: keyless unofficial endpoint (Firefox only) — documented weak link
+  - name: indexeddb-cache
+    direction: local
+    target: extension-origin IndexedDB (db=wikilens, store=translations)
+    contract: key (targetLang,title,revid,readingLang); revid is the invalidator
+features:  # one-line; full detail in CLAUDE.md
+  - split-screen — Narrow the live article to the left, render the translated parallel edition on the right (Shadow DOM).
+  - language-picker — Populate from MediaWiki langlinks; pick any parallel edition; remember last choice.
+  - on-device-translate — Chrome/Edge built-in Translator API, free + private, block-by-block.
+  - google-fallback — Firefox path via keyless translate.googleapis.com (background, CORS).
+  - local-cache — IndexedDB keyed on revision id; re-reads are instant + free.
+  - deferred — analytics (opt-in/anonymized, later) and bias-comparison layer (structural diff + on-device Gemini Nano).

@@ -1,0 +1,6 @@
+dist-chrome/
+dist-firefox/
+web-ext-artifacts/
+*.xpi
+*.zip
+.amo-upload-uuid

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>WikiLens — Settings</title>
+    <style>
+      body {
+        font-family: -apple-system, system-ui, "Segoe UI", sans-serif;
+        background: #0a0e1a;
+        color: #f8fafc;
+        margin: 0;
+        padding: 28px;
+        max-width: 520px;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0 0 4px 0;
+        color: #60a5fa;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      p.hint {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+        margin: 0 0 22px 0;
+        line-height: 1.55;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.6);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin: 18px 0 6px 0;
+      }
+      .sublabel {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.35);
+        margin: 4px 0 0 0;
+        line-height: 1.4;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      select,
+      input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        background: #0f1420;
+        color: #f8fafc;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 9px 10px;
+        font-size: 13px;
+        font-family: inherit;
+        outline: none;
+      }
+      select:focus,
+      input:focus {
+        border-color: rgba(96, 165, 250, 0.6);
+      }
+      button {
+        margin-top: 22px;
+        padding: 9px 18px;
+        background: #60a5fa;
+        color: #0a0e1a;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      button:hover {
+        filter: brightness(1.1);
+      }
+      .status {
+        margin-top: 14px;
+        font-size: 12px;
+        font-family: ui-monospace, monospace;
+        min-height: 16px;
+        color: rgba(255, 255, 255, 0.5);
+      }
+      .status.ok {
+        color: #22c55e;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WikiLens Settings</h1>
+    <p class="hint">
+      Everything runs in your browser. Nothing about what you read is sent to any
+      server — on Chrome/Edge the translation happens on-device.
+    </p>
+
+    <label for="reading-lang">Translate into</label>
+    <select id="reading-lang">
+      <option value="auto">Auto — the language of the Wikipedia you're on</option>
+      <option value="en">English</option>
+      <option value="he">עברית (Hebrew)</option>
+      <option value="ar">العربية (Arabic)</option>
+      <option value="ru">Русский (Russian)</option>
+      <option value="de">Deutsch (German)</option>
+      <option value="fr">Français (French)</option>
+      <option value="es">Español (Spanish)</option>
+    </select>
+    <p class="sublabel">The language the other edition gets translated into.</p>
+
+    <label for="provider">Translation engine</label>
+    <select id="provider">
+      <option value="auto">Auto — on-device if available, else free fallback</option>
+      <option value="builtin">On-device only (Chrome/Edge built-in)</option>
+      <option value="google">Free online fallback (Google, keyless)</option>
+    </select>
+    <p class="sublabel">
+      "Auto" prefers Chrome/Edge's private on-device translator and falls back to
+      the free online endpoint (the only option on Firefox today).
+    </p>
+
+    <button id="save-btn">Save</button>
+    <div class="status" id="status"></div>
+
+    <script src="lib/browser-polyfill.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

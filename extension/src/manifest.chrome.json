@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "WikiLens — Cross-Language Wikipedia",
+  "version": "0.1.0",
+  "description": "Read a Wikipedia article from another language edition, machine-translated, side by side — and see how each edition frames the topic.",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "minimum_chrome_version": "138",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "https://*.wikipedia.org/*",
+    "https://translate.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "WikiLens",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.wikipedia.org/wiki/*"],
+      "js": [
+        "lib/browser-polyfill.js",
+        "lib/rtl.js",
+        "lib/wiki.js",
+        "lib/render.js",
+        "lib/providers.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
