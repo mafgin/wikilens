@@ -144,43 +144,20 @@
     .wl-col.mobile .wl-article .references,
     .wl-col.mobile .wl-article .div-col { column-count:1 !important; column-width:auto !important; }
 
-    .wl-resize { position:absolute; left:0; top:0; bottom:0; width:7px; cursor:col-resize;
-      background:transparent; z-index:5; transition:background-color 120ms; }
-    .wl-resize:hover { background:var(--wl-border-subtle); }
+    .wl-colname { font-size:13px; font-weight:600; color:var(--wl-text);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   `;
 
   function ensureSplitStyle() {
     if (document.getElementById("wikilens-split-style")) return;
     const s = document.createElement("style");
     s.id = "wikilens-split-style";
+    // Full-screen overlay: the source article is rendered as the first column
+    // (same renderer as the translations), so everything shares one design.
     s.textContent = `
-      html.${SPLIT_CLASS} body { margin-right: var(--wl-w, 50vw) !important; }
-      #${PANE_ID} { position: fixed; top: 0; right: 0; width: var(--wl-w, 50vw);
-        height: 100vh; z-index: 2147483647; box-shadow: -1px 0 0 #c8ccd1, -8px 0 24px rgba(0,0,0,.06); }
-      /* free the squeezed source page: hide its side chrome + uncap content width
-         so the left article reflows toward a single column instead of breaking */
-      html.${SPLIT_CLASS} .vector-column-start,
-      html.${SPLIT_CLASS} .vector-sticky-pinned-container,
-      html.${SPLIT_CLASS} .vector-page-toolbar,
-      html.${SPLIT_CLASS} #vector-page-titlebar-toc,
-      html.${SPLIT_CLASS} .mw-table-of-contents-container { display: none !important; }
-      html.${SPLIT_CLASS} .mw-content-container,
-      html.${SPLIT_CLASS} .mw-page-container-inner,
-      html.${SPLIT_CLASS} .vector-body,
-      html.${SPLIT_CLASS} .mw-body { max-width: none !important; margin-inline: 0 !important; }
-      @media (max-width: 720px) {
-        html.${SPLIT_CLASS} body { margin-right: 0 !important; }
-        #${PANE_ID} { width: 100vw; }
-      }
+      #${PANE_ID} { position: fixed; inset: 0; z-index: 2147483647; background: #fff; }
     `;
     document.documentElement.appendChild(s);
-  }
-
-  // Auto-divide the page into equal parts: original + N columns each 1/(N+1).
-  function balanceWidth() {
-    const n = order.length;
-    const vw = n <= 0 ? 50 : (n / (n + 1)) * 100;
-    document.documentElement.style.setProperty("--wl-w", vw.toFixed(2) + "vw");
   }
 
   /* ----------------------------- shell ------------------------------- */
@@ -219,9 +196,7 @@
         mk("select", { id: "wl-picker", class: "wl-picker" }),
       ]),
       mk("div", { id: "wl-status", class: "wl-status" }),
-      mk("div", { id: "wl-articles", class: "wl-articles" }, [
-        mk("div", { id: "wl-resize", class: "wl-resize", title: "Drag to resize" }),
-      ]),
+      mk("div", { id: "wl-articles", class: "wl-articles" }),
     ]);
     shadow.appendChild(style);
     shadow.appendChild(root);
@@ -236,7 +211,6 @@
       el("wl-pickerbar").style.display = "none";
       if (lang) chooseLanguage(lang);
     });
-    initResize(el("wl-resize"));
 
     ro = new ResizeObserver((entries) => {
       entries.forEach((en) => en.target.classList.toggle("mobile", en.contentRect.width < MOBILE_PX));
@@ -274,7 +248,6 @@
       buildShell();
       document.documentElement.classList.add(SPLIT_CLASS);
       host.style.display = "block";
-      balanceWidth();
       applyFont();
       saveActive();
       await initLanguages();
@@ -297,7 +270,10 @@
   async function initLanguages() {
     current = WL.wiki.getCurrentArticle();
     const { wlLangs } = await browser.storage.local.get("wlLangs");
-    desired = Array.isArray(wlLangs) ? wlLangs.slice() : [];
+    desired = (Array.isArray(wlLangs) ? wlLangs : []).filter((l) => l !== current.lang);
+
+    // the source article is always the first column, rendered like the rest
+    if (!panes.has(current.lang)) openColumn(current.lang, { isSource: true });
 
     if (!langlinks) {
       setStatus("finding other language editions…");
@@ -310,21 +286,17 @@
       langlinks.sort((a, b) => a.langname.localeCompare(b.langname));
     }
     setStatus("");
-    if (!langlinks.length) {
-      setStatus("This article has no parallel editions in other languages.");
-      return;
-    }
     populatePicker();
     // restore the chosen comparison languages for THIS article
     desired.forEach((lang) => {
       if (!panes.has(lang) && langlinks.some((l) => l.lang === lang)) openColumn(lang);
     });
-    if (!order.length) togglePicker(true);
+    if (order.length <= 1) togglePicker(true); // only the source is open → nudge to add
   }
 
   function populatePicker() {
     const sel = el("wl-picker");
-    if (!sel) return;
+    if (!sel || !langlinks) return;
     const opts = [{ value: "", label: "add a language…" }].concat(
       langlinks
         .filter((l) => !panes.has(l.lang))
@@ -355,39 +327,58 @@
     openColumn(lang);
   }
 
-  // Open a column for `lang` on the current article (no-op if missing/already open).
-  function openColumn(lang) {
+  // Native language name (e.g. "עברית" for he) for the source column label.
+  function nativeName(lang) {
+    try {
+      return new Intl.DisplayNames([lang], { type: "language" }).of(lang) || lang.toUpperCase();
+    } catch {
+      return lang.toUpperCase();
+    }
+  }
+
+  // Open a column for `lang` (no-op if already open). opts.isSource = the article
+  // in its own language (the original), shown untranslated with a plain label.
+  function openColumn(lang, opts) {
     if (panes.has(lang)) return;
-    const target = langlinks.find((l) => l.lang === lang);
+    const isSource = !!(opts && opts.isSource);
+    const target = isSource
+      ? { lang, title: current.title, autonym: nativeName(lang) }
+      : langlinks && langlinks.find((l) => l.lang === lang);
     if (!target) return;
 
-    const langSel = mk("select", { class: "wl-collang", title: "Switch this column's language" });
     const status = mk("span", { class: "wl-colstatus" });
-    const srcBtn = mk("button", { class: "wl-colsrc", title: "Toggle original / translated", text: "מקור" });
-    const body = mk("article", { class: "wl-article", dir: "auto" });
     const close = mk("span", { class: "wl-colclose", title: "Close", text: "×" });
-    const col = mk("div", { class: "wl-col" }, [
-      mk("div", { class: "wl-colhead" }, [langSel, status, srcBtn, close]),
-      body,
-    ]);
+    const body = mk("article", { class: "wl-article", dir: "auto" });
+    let langSel = null;
+    let srcBtn = null;
+    let headKids;
+    if (isSource) {
+      headKids = [mk("span", { class: "wl-colname", text: target.autonym + " · source" }), status, close];
+    } else {
+      langSel = mk("select", { class: "wl-collang", title: "Switch this column's language" });
+      srcBtn = mk("button", { class: "wl-colsrc", title: "Toggle original / translated", text: "מקור" });
+      headKids = [langSel, status, srcBtn, close];
+    }
+    const col = mk("div", { class: "wl-col" }, [mk("div", { class: "wl-colhead" }, headKids), body]);
     el("wl-articles").appendChild(col);
     if (ro) ro.observe(col);
 
     const pane = {
-      lang, title: target.title, autonym: target.autonym,
+      lang, title: target.title, autonym: target.autonym, isSource,
       col, body, status, langSel, srcBtn, loading: true, showSource: false, art: null,
     };
     panes.set(lang, pane);
     order.push(lang);
 
-    fillColLangSelect(pane);
-    langSel.addEventListener("change", (e) => switchColumnLang(pane, e.target.value));
-    srcBtn.addEventListener("click", () => toggleSource(pane));
+    if (langSel) {
+      fillColLangSelect(pane);
+      langSel.addEventListener("change", (e) => switchColumnLang(pane, e.target.value));
+    }
+    if (srcBtn) srcBtn.addEventListener("click", () => toggleSource(pane));
     body.addEventListener("click", handleLinkClick); // navigate the whole set, same window
     close.addEventListener("click", () => closeColumn(pane.lang));
-    refreshColLangSelects(); // other columns' available sets changed
+    refreshColLangSelects();
     populatePicker();
-    balanceWidth();
 
     loadPane(pane).catch((e) => setColStatus(pane, "error: " + e.message, true));
   }
@@ -396,6 +387,7 @@
   // already open in OTHER columns (its own current language stays selectable).
   function fillColLangSelect(pane) {
     const sel = pane.langSel;
+    if (!sel || !langlinks) return;
     const openElsewhere = new Set([...panes.keys()].filter((l) => l !== pane.lang));
     sel.replaceChildren();
     langlinks
@@ -453,7 +445,6 @@
     saveLangs();
     refreshColLangSelects(); // the freed language is now available to other columns
     populatePicker();
-    balanceWidth();
     if (!order.length) togglePicker(true);
   }
 
@@ -487,7 +478,7 @@
     pane.body.appendChild(node);
 
     const dst = await readingLang();
-    const showSrc = pane.showSource || pane.lang === dst;
+    const showSrc = pane.isSource || pane.showSource || pane.lang === dst;
     pane.body.dir = WL.rtl.isRTL(showSrc ? pane.lang : dst) ? "rtl" : "ltr";
 
     if (showSrc) {
@@ -719,30 +710,6 @@
     if (!placed) return; // nothing matched — keep the plain translated text
     if (rest) frag.appendChild(document.createTextNode(rest));
     el.replaceChildren(frag);
-  }
-
-  /* ----------------------------- resize ------------------------------ */
-
-  function initResize(handle) {
-    let overlay = null;
-    function onMove(e) {
-      const w = Math.min(Math.max(window.innerWidth - e.clientX, 320), window.innerWidth * 0.92);
-      document.documentElement.style.setProperty("--wl-w", w + "px");
-    }
-    function onUp() {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      if (overlay) overlay.remove();
-    }
-    handle.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      overlay = mk("div", {
-        style: "position:fixed;inset:0;z-index:2147483646;cursor:col-resize;background:transparent",
-      });
-      document.documentElement.appendChild(overlay);
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    });
   }
 
   /* ----------------------------- messages ---------------------------- */
