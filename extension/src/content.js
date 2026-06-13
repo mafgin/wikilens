@@ -415,12 +415,16 @@
     const tasks = collectTasks(pane.body);
     const groups = new Map();
     const ordered = [];
-    tasks.forEach((t) => {
-      if (!groups.has(t.text)) {
-        groups.set(t.text, []);
-        ordered.push(t.text);
+    const addText = (t) => {
+      if (!groups.has(t)) {
+        groups.set(t, []);
+        ordered.push(t);
       }
+    };
+    tasks.forEach((t) => {
+      addText(t.text);
       groups.get(t.text).push(t);
+      if (t.links) t.links.forEach((l) => addText(l.text)); // translate anchors too
     });
 
     const meta = { targetLang: pane.lang, title: pane.title, revid: art.revid, readingLang: dst };
@@ -435,14 +439,17 @@
     });
 
     const missing = ordered.filter((t) => !map.has(t));
-    if (!missing.length) return "cached";
-
-    const res = await streamTranslate(missing, pane.lang, dst, pane, (i, tr) => {
-      map.set(missing[i], tr);
-      applyGroup(groups.get(missing[i]), tr); // progressive paint
-    });
-    bg({ type: "cache-put", meta, value: { pairs: [...map] } }).catch(() => {});
-    return res.via;
+    let via = "cached";
+    if (missing.length) {
+      const res = await streamTranslate(missing, pane.lang, dst, pane, (i, tr) => {
+        map.set(missing[i], tr);
+        applyGroup(groups.get(missing[i]), tr); // progressive paint (plain text)
+      });
+      via = res.via;
+      bg({ type: "cache-put", meta, value: { pairs: [...map] } }).catch(() => {});
+    }
+    relinkPass(tasks, map); // restore inline links once translations are in
+    return via;
   }
 
   async function streamTranslate(texts, src, dst, pane, onResult) {
@@ -503,7 +510,18 @@
       );
       if (!media) {
         const text = norm(leaf.textContent);
-        if (hasLetters(text)) tasks.push({ kind: "block", el: leaf, text });
+        if (hasLetters(text)) {
+          // capture inline links so they can be restored after translation
+          const links = [...leaf.querySelectorAll("a[href]")]
+            .map((a) => ({
+              text: norm(a.textContent),
+              href: a.getAttribute("href"),
+              target: a.getAttribute("target"),
+              rel: a.getAttribute("rel"),
+            }))
+            .filter((l) => l.href && hasLetters(l.text));
+          tasks.push({ kind: "block", el: leaf, text, links });
+        }
       } else {
         walkTextNodes(leaf).forEach((node) => {
           const raw = node.nodeValue;
@@ -528,6 +546,41 @@
       if (t.kind === "block") t.el.textContent = tr;
       else t.node.nodeValue = t.lead + tr + t.trail;
     });
+  }
+
+  // After translation, restore inline links in blocks that had them: find each
+  // link's translated anchor text inside the translated paragraph and wrap it in
+  // an <a>. Links whose anchor can't be located stay as plain text (graceful).
+  function relinkPass(tasks, map) {
+    tasks.forEach((t) => {
+      if (t.kind !== "block" || !t.links || !t.links.length) return;
+      const tr = map.get(t.text);
+      if (tr != null) reconstructBlock(t.el, tr, t.links, map);
+    });
+  }
+
+  function reconstructBlock(el, translated, links, map) {
+    let rest = translated;
+    const frag = document.createDocumentFragment();
+    let placed = 0;
+    links.forEach((link) => {
+      const anchor = map.get(link.text) || link.text;
+      if (!anchor) return;
+      const i = rest.toLowerCase().indexOf(anchor.toLowerCase());
+      if (i < 0) return; // translated anchor not found in the sentence — skip
+      if (i > 0) frag.appendChild(document.createTextNode(rest.slice(0, i)));
+      const a = document.createElement("a");
+      a.textContent = rest.slice(i, i + anchor.length);
+      a.setAttribute("href", link.href);
+      if (link.target) a.setAttribute("target", link.target);
+      if (link.rel) a.setAttribute("rel", link.rel);
+      frag.appendChild(a);
+      rest = rest.slice(i + anchor.length);
+      placed++;
+    });
+    if (!placed) return; // nothing matched — keep the plain translated text
+    if (rest) frag.appendChild(document.createTextNode(rest));
+    el.replaceChildren(frag);
   }
 
   /* ----------------------------- resize ------------------------------ */
