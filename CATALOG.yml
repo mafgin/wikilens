@@ -8,8 +8,10 @@ metadata:
     Fully client-side — no backend, no API key, zero per-user cost.
   status: building
   owner: yosef
-  phase: 1-mvp-translate-only
+  phase: chrome-store-prep
   repo: Projects/wikilens
+  public_repo: https://github.com/mafgin/wikilens
+  license: PolyForm-Noncommercial-1.0.0
   surfaces:
     - chrome-edge (MV3, on-device Translator API)
     - firefox (MV3, free keyless Google fallback)

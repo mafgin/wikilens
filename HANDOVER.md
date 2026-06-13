@@ -1,76 +1,70 @@
 # WikiLens — Handover
 
-_Last updated: 2026-06-13 (Yosef)_
+_Last updated: 2026-06-14 (Yosef)_
 
 > First file to read on a cold start. Durable reference: `CLAUDE.md`. Plan:
-> `~/.claude/plans/glowing-dancing-mountain.md`.
+> `~/.claude/plans/glowing-dancing-mountain.md`. Public repo:
+> https://github.com/mafgin/wikilens
 
 ## 1. מה המטרה (Goal)
-A public Chrome + Firefox browser extension that exposes how Wikipedia's
-different **language editions frame the same topic** differently (political
-bias) — by letting you read the same article from other editions, translated,
-next to each other.
+A public browser extension that exposes how Wikipedia's different **language
+editions frame the same topic** differently — by reading the same article from
+other editions, translated, side by side.
 
 ## 2. מה רוצים לעשות (What we want)
-Read any Wikipedia article and, in one clean full-screen view, see the **source
-article plus N other-language editions side by side, all machine-translated**
-into your reading language, all looking identical (Wikipedia's own design).
-Free for everyone, private, zero per-user cost. Browse article-to-article with
-the comparison following you.
+One clean full-screen view: the **source article plus N other-language editions
+side by side, machine-translated**, all looking identical (Wikipedia's own
+design). Free, private, zero per-user cost. Browse article-to-article with the
+comparison following you. Ship to the Chrome Web Store (Phase A) then Firefox/AMO
+(Phase B).
 
 ## 3. איפה אנחנו עומדים (Where we stand)
-Feature-complete for a v1 and committed (standalone repo `Projects/wikilens`,
-through ~`c2a64b7`). `web-ext lint` = 0 errors. **Verified headlessly only**
-(syntax + lint + jsdom against real article HTML + live MediaWiki/Google
-contracts). Not yet run in a real GUI browser — that's the one open gate.
+Feature-complete v1, **Mor-verified in the browser**, **public on GitHub**
+(`mafgin/wikilens`, 17 commits, `main`) under a **PolyForm Noncommercial 1.0.0**
+license. **Chrome store package is prepared.** Not yet submitted to the store.
 
 ## 4. מה בוצע (What's done)
-- Full-screen multi-column reader: **source rendered as the first column** by our
-  own pipeline + N translation columns, equal widths, mobile layout <540px/column.
-- Free translation: **Chrome/Edge on-device Translator API**; **Firefox** keyless
-  Google fallback (background). Discovery via MediaWiki `langlinks` (no key).
-- Renders real Wikipedia structure (headings/images/infobox/tables), strips nav
-  chrome by ARIA role + class, wraps wide tables to scroll, flips RTL→LTR.
-- **Progressive** block translation (paint per block, top-first, concurrency 6),
-  IndexedDB cache keyed on revid, **inline links preserved** (re-link by anchor).
-- "+" adds language columns; per-column language switch; show-source toggle;
-  A−/A+ text size; **in-window link nav** that moves the whole set; **state
-  persists across navigation** (`wlActive`/`wlLangs`).
-- Minimal **Wikimedia-Codex** redesign (light, serif headings, `#3366cc`); popup
-  + options restyled. Icons, `build.sh`, both MV3 manifests, CLAUDE/ONBOARDING/
-  README/CATALOG, git repo.
+- Full-screen multi-column reader (source rendered as a column + N translations,
+  equal widths, mobile <540px); progressive block translation; IndexedDB cache;
+  inline links preserved; in-window set navigation; persists across browsing;
+  per-column language switch, show-source toggle, A−/A+ text size.
+- Wikimedia-Codex minimal redesign (light, serif headings, `#3366cc`).
+- **Open-sourced (noncommercial):** `LICENSE.md` (PolyForm NC), pushed public.
+- **Chrome store prep:** Chrome build made **on-device-only** (dropped the
+  `translate.googleapis.com` permission → nothing leaves the device); `PRIVACY.md`
+  (collects nothing); `store/chrome/listing.md` (name/summary/description/single-
+  purpose/permission justifications/asset checklist); packaged
+  `extension/wikilens-chrome-0.1.0.zip` (18 files, clean).
 
-## 5. איך בוצע (How)
-Vanilla JS, no bundler, MV3, global `WL` namespace (reuses `daniel/firefox-addon`
-idioms). All client-side — **no backend, no API key**. Key files:
-`extension/src/content.js` (UI + orchestration), `lib/wiki.js` (MediaWiki +
-clean/build), `lib/providers.js` (on-device + Google), `lib/cache.js`,
-`lib/render.js`, `background.js` (cache + Google CORS fetch). Build:
-`extension/build.sh` → `dist-{chrome,firefox}/`. Rationale in
-[[project_wikilens_2026_06_13]] memory + the approved plan file.
+## 5. איך בוצע (How it was done)
+Vanilla JS, no bundler, MV3, global `WL` namespace; 100% client-side (no backend,
+no key). Chrome = built-in on-device Translator API; Firefox (Phase B) = keyless
+Google fallback (the known weak link). Key files: `extension/src/content.js`,
+`lib/wiki.js`, `lib/providers.js`, `lib/cache.js`, `background.js`. Build:
+`extension/build.sh` → `dist-{chrome,firefox}/`. Depth:
+[[project_wikilens_2026_06_13]] memory + the approved plan.
 
-## 6. מה חוסם (Blocking)
-Nothing hard. One **unverified assumption**: that Chrome's `self.Translator` is
-reachable from a content script (mini runs Chrome 148, so very likely yes). If
-not → move the on-device call to an offscreen document (small change). Secondary
-weak link: the Firefox Google endpoint is unofficial (can rate-limit / draw AMO
-scrutiny).
+## 6. מה חוסם (What's blocking)
+Nothing hard for Chrome. For **Firefox (Phase B)** the unofficial Google endpoint
+is a real store-review risk — must be replaced (self-host LibreTranslate / BYOK)
+or disclosed, and the `data_collection_permissions: ["none"]` reconciled with the
+fact that it transmits article text.
 
-## 7. למה מחכים (Waiting for)
-Mor to run it in a GUI browser and report behavior — especially whether the
-on-device translation fires on Chrome (Network tab shows **no** translate call),
-RTL renders, and the multi-column/mobile/links feel right.
+## 7. למה מחכים (What we're waiting for)
+Mor, for the Chrome submission: (a) Chrome developer account ($5 + 2FA);
+(b) screenshots (≥1, 1280×800 — GUI needed; can do via RustDesk);
+(c) name/trademark check; (d) the actual upload + form fill.
 
 ## 8. מה הצעד הבא (Next step)
-1. GUI run on the mini's Chrome (load `dist-chrome/` unpacked) → confirm Phase-0
-   gate; fix to offscreen-document if `Translator` isn't in the content script.
-2. Polish from Mor's feedback (per-column drag-resize is the one deferred item).
-3. Ship: `web-ext sign` → `.xpi` (publish-download.sh / AMO) + Chrome Web Store.
-4. Later (deferred): opt-in anonymized analytics (privacy policy + store
-   disclosure); the LLM bias-comparison layer (on-device Gemini Nano).
+1. Chrome Web Store submission — upload `wikilens-chrome-0.1.0.zip`, paste
+   `store/chrome/listing.md`, set privacy URL
+   (`…/blob/main/PRIVACY.md`), add screenshots → submit for review.
+2. Phase B (Firefox): decide the translation source, reconcile data-collection
+   disclosure, `web-ext sign` → AMO.
+3. Optional polish: `CONTRIBUTING.md`, screenshots in README, per-column drag-resize.
+4. Later (deferred): opt-in anonymized analytics; LLM bias-comparison (Gemini Nano).
 
 ## 9. איפה עצרנו (Where we stopped)
-Last action: refactored the source to render as a column (full-screen unified
-design), committed `c2a64b7`, then ran `/update`. Extension is built in
-`extension/dist-chrome` and `dist-firefox`, ready to load. Mor was iterating on
-design/UX live; he should reload the unpacked extension to see the latest.
+Last actions: open-sourced under PolyForm NC, pushed to `github.com/mafgin/wikilens`
+(public), prepared the Chrome store package (on-device manifest + PRIVACY +
+listing + zip), then ran `/update`. Chrome submission is Mor's to drive from here.
