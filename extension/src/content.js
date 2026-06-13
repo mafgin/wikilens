@@ -1,18 +1,18 @@
 /**
  * WikiLens content script — runs on *.wikipedia.org/wiki/*.
  *
- * Splits the window: the live Wikipedia article narrows to the left; the right
- * pane holds one or more COLUMNS, each the same article from another language
- * edition, rendered with Wikipedia's own structure (headings, images, infobox,
- * tables, links) and translated IN PLACE.
+ * Splits the window: the live Wikipedia article on the left; the right pane
+ * holds one or more COLUMNS, each the same article from another language
+ * edition, rendered with Wikipedia's structure and translated in place.
  *
- *   • "+" adds a column      — see 3+ editions in parallel; narrow columns
- *                              fall back to a stacked mobile layout.
- *   • Progressive translation — the original shows instantly, then each
- *                              paragraph is replaced top-down as it's ready.
- *   • Drag handle             — grow/shrink the split (persisted).
- *   • RTL→LTR                 — translating he/ar→en flips the whole column
- *                              layout to LTR, not just the text.
+ *   • "+" adds a column        — equal parts auto-divide (orig + N cols all the
+ *                                same width); narrow columns → mobile layout.
+ *   • Follows you as you browse — the split + chosen languages persist across
+ *                                link clicks / navigation (Wikipedia is wandering
+ *                                article to article).
+ *   • Progressive translation  — original shows instantly, blocks translate
+ *                                top-down as they're ready.
+ *   • RTL→LTR                  — translating he/ar→en flips the whole column.
  */
 (function () {
   const WL = globalThis.WL;
@@ -29,9 +29,11 @@
   let isOpen = false;
   let current = null;
   let langlinks = null;
-  const panes = new Map(); // lang -> pane
-  const order = [];
-  let ro = null; // ResizeObserver for narrow/mobile toggling
+  const panes = new Map(); // lang -> open column
+  const order = []; // open column langs, in display order
+  let desired = []; // the chosen comparison languages (persisted, may exceed what
+                    // this article has — missing ones reappear on articles that have them)
+  let ro = null;
 
   /* ----------------------------- styling ----------------------------- */
 
@@ -67,7 +69,6 @@
     .wl-colclose { cursor:pointer; opacity:.5; font-weight:700; flex:none; }
     .wl-colclose:hover { opacity:1; }
 
-    /* the translated article — keep Wikipedia's look */
     .wl-article { flex:1; overflow:auto; padding:14px 18px 60px; color:#202122; background:#fff;
       font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; line-height:1.65; }
     .wl-article .wl-arttitle { font-family:Georgia,'Linux Libertine',serif; font-size:24px;
@@ -90,11 +91,11 @@
     .wl-article ul, .wl-article ol { margin:.4em 0; padding-inline-start:1.5em; }
     .wl-article blockquote { border-inline-start:3px solid #c8ccd1; margin:.6em 0; padding-inline-start:12px; color:#54595d; }
 
-    /* narrow column → mobile/stacked: no floats, full-width infobox */
     .wl-col.narrow .wl-article { padding:10px 12px 40px; font-size:13px; }
     .wl-col.narrow .wl-article table.infobox { float:none; max-width:none; width:auto; margin:.6em 0; }
-    .wl-col.narrow .wl-article .thumb { float:none !important; width:auto !important; max-width:100%; margin:.5em 0; }
-    .wl-col.narrow .wl-article .tright, .wl-col.narrow .wl-article .tleft { float:none !important; margin:.5em 0; }
+    .wl-col.narrow .wl-article .thumb,
+    .wl-col.narrow .wl-article .tright,
+    .wl-col.narrow .wl-article .tleft { float:none !important; width:auto !important; max-width:100%; margin:.5em 0; }
 
     .wl-resize { position:absolute; left:0; top:0; bottom:0; width:8px; cursor:col-resize;
       background:transparent; z-index:5; }
@@ -115,6 +116,13 @@
       }
     `;
     document.documentElement.appendChild(s);
+  }
+
+  // Auto-divide the page into equal parts: original + N columns each 1/(N+1).
+  function balanceWidth() {
+    const n = order.length;
+    const vw = n <= 0 ? 50 : (n / (n + 1)) * 100;
+    document.documentElement.style.setProperty("--wl-w", vw.toFixed(2) + "vw");
   }
 
   /* ----------------------------- shell ------------------------------- */
@@ -164,16 +172,19 @@
     el("wl-picker").addEventListener("change", (e) => {
       const lang = e.target.value;
       el("wl-pickerbar").style.display = "none";
-      if (lang) addColumn(lang);
+      if (lang) chooseLanguage(lang);
     });
     initResize(el("wl-resize"));
 
     ro = new ResizeObserver((entries) => {
-      entries.forEach((en) => {
-        const col = en.target;
-        col.classList.toggle("narrow", en.contentRect.width < NARROW_PX);
-      });
+      entries.forEach((en) => en.target.classList.toggle("narrow", en.contentRect.width < NARROW_PX));
     });
+  }
+
+  /* --------------------------- persistence --------------------------- */
+
+  function saveState() {
+    browser.storage.local.set({ wlActive: isOpen, wlLangs: desired.slice() });
   }
 
   /* ----------------------------- open/close -------------------------- */
@@ -182,14 +193,15 @@
     isOpen = typeof force === "boolean" ? force : !isOpen;
     if (isOpen) {
       buildShell();
-      const { splitWidth } = await browser.storage.local.get("splitWidth");
-      document.documentElement.style.setProperty("--wl-w", splitWidth || "50vw");
       document.documentElement.classList.add(SPLIT_CLASS);
       host.style.display = "block";
+      balanceWidth();
+      saveState();
       await initLanguages();
     } else if (host) {
       host.style.display = "none";
       document.documentElement.classList.remove(SPLIT_CLASS);
+      saveState();
     }
     return isOpen;
   }
@@ -203,32 +215,36 @@
   }
 
   async function initLanguages() {
-    if (langlinks) {
-      populatePicker();
-      return;
-    }
     current = WL.wiki.getCurrentArticle();
-    setStatus("finding other language editions…");
-    try {
-      langlinks = await WL.wiki.fetchLangLinks(current.lang, current.title);
-    } catch (e) {
-      setStatus("could not load language list: " + e.message, true);
-      return;
+    const { wlLangs } = await browser.storage.local.get("wlLangs");
+    desired = Array.isArray(wlLangs) ? wlLangs.slice() : [];
+
+    if (!langlinks) {
+      setStatus("finding other language editions…");
+      try {
+        langlinks = await WL.wiki.fetchLangLinks(current.lang, current.title);
+      } catch (e) {
+        setStatus("could not load language list: " + e.message, true);
+        return;
+      }
+      langlinks.sort((a, b) => a.langname.localeCompare(b.langname));
     }
-    langlinks.sort((a, b) => a.langname.localeCompare(b.langname));
     setStatus("");
     if (!langlinks.length) {
       setStatus("This article has no parallel editions in other languages.");
       return;
     }
     populatePicker();
-    const { lastTargetLang } = await browser.storage.local.get("lastTargetLang");
-    if (lastTargetLang && langlinks.some((l) => l.lang === lastTargetLang)) addColumn(lastTargetLang);
-    else togglePicker(true);
+    // restore the chosen comparison languages for THIS article
+    desired.forEach((lang) => {
+      if (!panes.has(lang) && langlinks.some((l) => l.lang === lang)) openColumn(lang);
+    });
+    if (!order.length) togglePicker(true);
   }
 
   function populatePicker() {
     const sel = el("wl-picker");
+    if (!sel) return;
     const opts = [{ value: "", label: "add a language…" }].concat(
       langlinks
         .filter((l) => !panes.has(l.lang))
@@ -252,11 +268,18 @@
 
   /* ----------------------------- columns ----------------------------- */
 
-  function addColumn(lang) {
+  // User picked a language from the "+" menu → add it to the comparison set.
+  function chooseLanguage(lang) {
+    if (!desired.includes(lang)) desired.push(lang);
+    saveState();
+    openColumn(lang);
+  }
+
+  // Open a column for `lang` on the current article (no-op if missing/already open).
+  function openColumn(lang) {
     if (panes.has(lang)) return;
     const target = langlinks.find((l) => l.lang === lang);
     if (!target) return;
-    browser.storage.local.set({ lastTargetLang: lang });
 
     const status = mk("span", { class: "wl-colstatus" });
     const body = mk("article", { class: "wl-article", dir: "auto" });
@@ -277,19 +300,24 @@
     order.push(lang);
     close.addEventListener("click", () => closeColumn(lang));
     populatePicker();
+    balanceWidth();
 
     loadPane(pane).catch((e) => setColStatus(pane, "error: " + e.message, true));
   }
 
   function closeColumn(lang) {
     const p = panes.get(lang);
-    if (!p) return;
-    if (ro) ro.unobserve(p.col);
-    p.col.remove();
-    panes.delete(lang);
-    const i = order.indexOf(lang);
-    if (i >= 0) order.splice(i, 1);
+    if (p) {
+      if (ro) ro.unobserve(p.col);
+      p.col.remove();
+      panes.delete(lang);
+      const i = order.indexOf(lang);
+      if (i >= 0) order.splice(i, 1);
+    }
+    desired = desired.filter((l) => l !== lang); // explicit close removes from the set
+    saveState();
     populatePicker();
+    balanceWidth();
     if (!order.length) togglePicker(true);
   }
 
@@ -316,8 +344,6 @@
     pane.body.appendChild(node);
 
     const dst = await readingLang();
-    // RTL→LTR (or vice-versa): the column follows the READING language so the
-    // entire layout — text alignment, infobox/thumb side — flips coherently.
     pane.body.dir = WL.rtl.isRTL(dst) ? "rtl" : "ltr";
 
     let via = "original";
@@ -329,7 +355,6 @@
 
   async function translatePane(pane, art, dst) {
     const tasks = collectTasks(pane.body);
-    // group identical strings; keep document order so the top translates first
     const groups = new Map();
     const ordered = [];
     tasks.forEach((t) => {
@@ -347,7 +372,6 @@
       if (r && r.value && r.value.pairs) map = new Map(r.value.pairs);
     } catch {}
 
-    // paint cached translations immediately, in order
     ordered.forEach((text) => {
       if (map.has(text)) applyGroup(groups.get(text), map.get(text));
     });
@@ -357,15 +381,12 @@
 
     const res = await streamTranslate(missing, pane.lang, dst, pane, (i, tr) => {
       map.set(missing[i], tr);
-      applyGroup(groups.get(missing[i]), tr); // progressive: paint each block now
+      applyGroup(groups.get(missing[i]), tr); // progressive paint
     });
     bg({ type: "cache-put", meta, value: { pairs: [...map] } }).catch(() => {});
     return res.via;
   }
 
-  // Translate `texts` (document order). `onResult(i, tr)` fires per item so the
-  // caller paints progressively. On-device streams per block; the Google
-  // fallback streams per small chunk.
   async function streamTranslate(texts, src, dst, pane, onResult) {
     const { provider } = await browser.storage.local.get("provider");
     const mode = provider || "auto";
@@ -456,15 +477,13 @@
   function initResize(handle) {
     let overlay = null;
     function onMove(e) {
-      const w = Math.min(Math.max(window.innerWidth - e.clientX, 320), window.innerWidth * 0.9);
+      const w = Math.min(Math.max(window.innerWidth - e.clientX, 320), window.innerWidth * 0.92);
       document.documentElement.style.setProperty("--wl-w", w + "px");
     }
     function onUp() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       if (overlay) overlay.remove();
-      const w = getComputedStyle(document.documentElement).getPropertyValue("--wl-w").trim();
-      if (w) browser.storage.local.set({ splitWidth: w });
     }
     handle.addEventListener("mousedown", (e) => {
       e.preventDefault();
@@ -495,4 +514,12 @@
       return true;
     }
   });
+
+  // Follow the user across navigation: if WikiLens was open, re-open it on the
+  // next article automatically (Wikipedia browsing is article-to-article).
+  (async function autoOpen() {
+    if (!WL || !WL.wiki || !WL.wiki.isArticlePage()) return;
+    const { wlActive } = await browser.storage.local.get("wlActive");
+    if (wlActive) toggle(true);
+  })();
 })();
