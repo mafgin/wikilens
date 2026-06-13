@@ -66,3 +66,8 @@ the translation engine (auto / on-device only / free online fallback).
 free to use, modify, and share WikiLens for **noncommercial purposes**. Note this
 is a *source-available* license, not OSI/FSF "open source" in the strict sense,
 because it restricts commercial use.
+
+## Privacy
+
+WikiLens collects nothing. On Chrome/Edge, translation runs entirely on-device
+and no article content leaves your browser. See [`PRIVACY.md`](PRIVACY.md).

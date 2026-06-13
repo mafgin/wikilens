@@ -4,3 +4,4 @@ web-ext-artifacts/
 *.xpi
 *.zip
 .amo-upload-uuid
+.DS_Store

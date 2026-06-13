@@ -9,7 +9,7 @@ for browser in chrome firefox; do
   OUT="dist-$browser"
   rm -rf "$OUT"
   mkdir -p "$OUT"
-  rsync -a --exclude 'manifest.*.json' "$SRC"/ "$OUT"/
+  rsync -a --exclude 'manifest.*.json' --exclude '.DS_Store' "$SRC"/ "$OUT"/
   cp "$SRC/manifest.$browser.json" "$OUT/manifest.json"
   echo "built $OUT"
 done

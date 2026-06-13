@@ -11,8 +11,7 @@
   "minimum_chrome_version": "138",
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
-    "https://*.wikipedia.org/*",
-    "https://translate.googleapis.com/*"
+    "https://*.wikipedia.org/*"
   ],
   "background": {
     "service_worker": "background.js"
