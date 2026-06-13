@@ -46,6 +46,9 @@
       color:#60A5FA; white-space:nowrap; flex:1; }
     .wl-add { background:#60A5FA; color:#0A0E1A; border:none; border-radius:6px; height:26px;
       padding:0 10px; font-size:13px; font-weight:600; cursor:pointer; flex:none; }
+    .wl-fsbtn { background:rgba(255,255,255,.08); color:#F8FAFC; border:none; border-radius:6px;
+      height:26px; padding:0 9px; font-size:13px; cursor:pointer; flex:none; }
+    .wl-fsbtn:hover { background:rgba(255,255,255,.16); }
     .wl-close { background:rgba(255,255,255,.08); color:#F8FAFC; border:none; border-radius:6px;
       width:26px; height:26px; cursor:pointer; flex:none; }
     .wl-close:hover { background:rgba(255,255,255,.16); }
@@ -68,20 +71,23 @@
     .wl-colstatus { flex:1; font-size:11px; color:#2563eb; font-family:ui-monospace,monospace;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .wl-colstatus.err { color:#dc2626; }
+    .wl-colsrc { background:transparent; color:#2563eb; border:1px solid #cbd5e1; border-radius:4px;
+      font-size:11px; padding:1px 6px; cursor:pointer; flex:none; }
+    .wl-colsrc.active { background:#2563eb; color:#fff; border-color:#2563eb; }
     .wl-colclose { cursor:pointer; opacity:.5; font-weight:700; flex:none; }
     .wl-colclose:hover { opacity:1; }
 
     .wl-article { flex:1; overflow:auto; padding:14px 18px 60px; color:#202122; background:#fff;
       font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; line-height:1.65;
-      overflow-wrap:break-word; }
+      overflow-wrap:break-word; font-size:var(--wl-fs,15px); }
     .wl-article .wl-tablescroll { overflow-x:auto; max-width:100%; margin:1em 0; }
     .wl-article table { max-width:100%; }
-    .wl-article .wl-arttitle { font-family:Georgia,'Linux Libertine',serif; font-size:24px;
+    .wl-article .wl-arttitle { font-family:Georgia,'Linux Libertine',serif; font-size:1.6em;
       font-weight:normal; margin:0 0 .4em; padding-bottom:.2em; border-bottom:1px solid #a2a9b1; color:#000; }
-    .wl-article h2 { font-family:Georgia,serif; font-size:19px; font-weight:normal;
+    .wl-article h2 { font-family:Georgia,serif; font-size:1.3em; font-weight:normal;
       border-bottom:1px solid #a2a9b1; padding-bottom:.2em; margin:1em 0 .4em; }
-    .wl-article h3 { font-size:16px; margin:.9em 0 .3em; }
-    .wl-article h4 { font-size:14px; margin:.7em 0 .3em; }
+    .wl-article h3 { font-size:1.12em; margin:.9em 0 .3em; }
+    .wl-article h4 { font-size:1em; margin:.7em 0 .3em; }
     .wl-article p { margin:.5em 0; }
     .wl-article a { color:#3366cc; text-decoration:none; }
     .wl-article a:hover { text-decoration:underline; }
@@ -97,9 +103,9 @@
     .wl-article blockquote { border-inline-start:3px solid #c8ccd1; margin:.6em 0; padding-inline-start:12px; color:#54595d; }
 
     /* below MOBILE_PX: force a single-column, no-float mobile layout */
-    .wl-col.mobile .wl-article { padding:10px 13px 40px; font-size:13px; }
-    .wl-col.mobile .wl-article .wl-arttitle { font-size:21px; }
-    .wl-col.mobile .wl-article h2 { font-size:17px; }
+    .wl-col.mobile .wl-article { padding:10px 13px 40px; }
+    .wl-col.mobile .wl-article .wl-arttitle { font-size:1.4em; }
+    .wl-col.mobile .wl-article h2 { font-size:1.15em; }
     .wl-col.mobile .wl-article table.infobox { float:none !important; max-width:100% !important;
       width:auto !important; margin:.6em 0 !important; font-size:12px; }
     .wl-col.mobile .wl-article .thumb,
@@ -129,6 +135,17 @@
       html.${SPLIT_CLASS} body { margin-right: var(--wl-w, 50vw) !important; }
       #${PANE_ID} { position: fixed; top: 0; right: 0; width: var(--wl-w, 50vw);
         height: 100vh; z-index: 2147483647; box-shadow: -2px 0 14px rgba(0,0,0,.35); }
+      /* free the squeezed source page: hide its side chrome + uncap content width
+         so the left article reflows toward a single column instead of breaking */
+      html.${SPLIT_CLASS} .vector-column-start,
+      html.${SPLIT_CLASS} .vector-sticky-pinned-container,
+      html.${SPLIT_CLASS} .vector-page-toolbar,
+      html.${SPLIT_CLASS} #vector-page-titlebar-toc,
+      html.${SPLIT_CLASS} .mw-table-of-contents-container { display: none !important; }
+      html.${SPLIT_CLASS} .mw-content-container,
+      html.${SPLIT_CLASS} .mw-page-container-inner,
+      html.${SPLIT_CLASS} .vector-body,
+      html.${SPLIT_CLASS} .mw-body { max-width: none !important; margin-inline: 0 !important; }
       @media (max-width: 720px) {
         html.${SPLIT_CLASS} body { margin-right: 0 !important; }
         #${PANE_ID} { width: 100vw; }
@@ -171,6 +188,8 @@
     const root = mk("div", { class: "wl-root" }, [
       mk("header", { class: "wl-head" }, [
         mk("div", { class: "wl-brand", text: "WikiLens" }),
+        mk("button", { id: "wl-fsdown", class: "wl-fsbtn", title: "Smaller text", text: "A−" }),
+        mk("button", { id: "wl-fsup", class: "wl-fsbtn", title: "Larger text", text: "A+" }),
         mk("button", { id: "wl-add", class: "wl-add", title: "Add a language column", text: "+ language" }),
         mk("button", { id: "wl-close", class: "wl-close", title: "Close", text: "✕" }),
       ]),
@@ -188,6 +207,8 @@
 
     el("wl-close").addEventListener("click", () => toggle(false));
     el("wl-add").addEventListener("click", () => togglePicker());
+    el("wl-fsdown").addEventListener("click", () => changeFont(-1));
+    el("wl-fsup").addEventListener("click", () => changeFont(1));
     el("wl-picker").addEventListener("change", (e) => {
       const lang = e.target.value;
       el("wl-pickerbar").style.display = "none";
@@ -212,6 +233,17 @@
     browser.storage.local.set({ wlLangs: desired.slice() });
   }
 
+  async function applyFont() {
+    const { fontPx } = await browser.storage.local.get("fontPx");
+    host.style.setProperty("--wl-fs", (fontPx || 15) + "px");
+  }
+  async function changeFont(d) {
+    const { fontPx } = await browser.storage.local.get("fontPx");
+    const v = Math.min(Math.max((fontPx || 15) + d, 11), 26);
+    host.style.setProperty("--wl-fs", v + "px");
+    browser.storage.local.set({ fontPx: v });
+  }
+
   /* ----------------------------- open/close -------------------------- */
 
   async function toggle(force) {
@@ -221,6 +253,7 @@
       document.documentElement.classList.add(SPLIT_CLASS);
       host.style.display = "block";
       balanceWidth();
+      applyFont();
       saveActive();
       await initLanguages();
     } else if (host) {
@@ -308,21 +341,27 @@
 
     const langSel = mk("select", { class: "wl-collang", title: "Switch this column's language" });
     const status = mk("span", { class: "wl-colstatus" });
+    const srcBtn = mk("button", { class: "wl-colsrc", title: "Toggle original / translated", text: "מקור" });
     const body = mk("article", { class: "wl-article", dir: "auto" });
     const close = mk("span", { class: "wl-colclose", title: "Close", text: "✕" });
     const col = mk("div", { class: "wl-col" }, [
-      mk("div", { class: "wl-colhead" }, [langSel, status, close]),
+      mk("div", { class: "wl-colhead" }, [langSel, status, srcBtn, close]),
       body,
     ]);
     el("wl-articles").appendChild(col);
     if (ro) ro.observe(col);
 
-    const pane = { lang, title: target.title, autonym: target.autonym, col, body, status, langSel, loading: true };
+    const pane = {
+      lang, title: target.title, autonym: target.autonym,
+      col, body, status, langSel, srcBtn, loading: true, showSource: false, art: null,
+    };
     panes.set(lang, pane);
     order.push(lang);
 
     fillColLangSelect(pane);
     langSel.addEventListener("change", (e) => switchColumnLang(pane, e.target.value));
+    srcBtn.addEventListener("click", () => toggleSource(pane));
+    body.addEventListener("click", handleLinkClick); // navigate the whole set, same window
     close.addEventListener("click", () => closeColumn(pane.lang));
     refreshColLangSelects(); // other columns' available sets changed
     populatePicker();
@@ -411,21 +450,81 @@
 
   async function loadPane(pane) {
     setColStatus(pane, "fetching…");
-    const art = await WL.wiki.fetchArticleHtml(pane.lang, pane.title);
-    const node = WL.wiki.buildArticleNode(art.html, pane.lang);
+    pane.art = await WL.wiki.fetchArticleHtml(pane.lang, pane.title);
+    await renderPaneBody(pane);
+  }
 
+  // Render (or re-render) a column's body from the fetched article. Used on load
+  // and when the user toggles "show original". Translation results are cached,
+  // so toggling back to the translation is instant.
+  async function renderPaneBody(pane) {
+    const art = pane.art;
+    const node = WL.wiki.buildArticleNode(art.html, pane.lang);
     pane.body.replaceChildren();
     pane.body.appendChild(mk("h1", { class: "wl-arttitle", dir: "auto", text: art.displayTitle }));
     pane.body.appendChild(node);
 
     const dst = await readingLang();
-    pane.body.dir = WL.rtl.isRTL(dst) ? "rtl" : "ltr";
+    const showSrc = pane.showSource || pane.lang === dst;
+    pane.body.dir = WL.rtl.isRTL(showSrc ? pane.lang : dst) ? "rtl" : "ltr";
 
-    let via = "original";
-    if (pane.lang !== dst) via = await translatePane(pane, art, dst);
-
+    if (showSrc) {
+      pane.loading = false;
+      setColStatus(pane, `rev ${art.revid} · ${pane.lang === dst ? "original" : "source"}`);
+      return;
+    }
+    const via = await translatePane(pane, art, dst);
     pane.loading = false;
     setColStatus(pane, `rev ${art.revid} · ${via}`);
+  }
+
+  function toggleSource(pane) {
+    pane.showSource = !pane.showSource;
+    pane.srcBtn.classList.toggle("active", pane.showSource);
+    pane.srcBtn.textContent = pane.showSource ? "תרגום" : "מקור";
+    if (pane.art) renderPaneBody(pane).catch((e) => setColStatus(pane, "error: " + e.message, true));
+  }
+
+  // Clicking a link inside a translated column navigates the WHOLE set in the
+  // same window: resolve the link to its equivalent in the source language and
+  // navigate the main tab there. The content script then re-opens every column
+  // (and the source) on the new article. cmd/ctrl/shift-click is left to the
+  // browser (new tab/window); external + non-article links open in a new tab.
+  function handleLinkClick(e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    const href = a.href || a.getAttribute("href");
+    const m = /^https?:\/\/([a-z0-9-]+)\.wikipedia\.org\/wiki\/([^#?]+)/i.exec(href || "");
+    if (!m) {
+      e.preventDefault();
+      window.open(href, "_blank", "noopener");
+      return;
+    }
+    const lang = m[1];
+    const title = decodeURIComponent(m[2]).replace(/_/g, " ");
+    if (title.includes(":")) {
+      e.preventDefault();
+      window.open(href, "_blank", "noopener"); // File:/Special:/etc.
+      return;
+    }
+    e.preventDefault();
+    navigateSet(lang, title);
+  }
+
+  async function navigateSet(lang, title) {
+    const srcLang = current.lang;
+    let url = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`;
+    if (lang !== srcLang) {
+      try {
+        const lls = await WL.wiki.fetchLangLinks(lang, title);
+        const hit = lls.find((l) => l.lang === srcLang);
+        if (hit) {
+          url = hit.url || `https://${srcLang}.wikipedia.org/wiki/${encodeURIComponent(hit.title.replace(/ /g, "_"))}`;
+        }
+      } catch {}
+    }
+    window.location.href = url; // full nav → content script re-opens the set
   }
 
   async function translatePane(pane, art, dst) {

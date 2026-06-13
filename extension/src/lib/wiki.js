@@ -203,7 +203,8 @@
     root.querySelectorAll("a[href]").forEach((a) => {
       const href = a.getAttribute("href");
       if (href && href.startsWith("/")) a.setAttribute("href", base + href);
-      a.setAttribute("target", "_blank");
+      // no target=_blank: the content script intercepts clicks to navigate the
+      // whole comparison set in the same window (cmd/ctrl-click still new-tabs).
       a.setAttribute("rel", "noopener noreferrer");
     });
     root.querySelectorAll("img[src]").forEach((img) => {
