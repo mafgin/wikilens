@@ -4,7 +4,10 @@ Cold-start tour + where we are. Durable reference is `CLAUDE.md`.
 
 ## Status — 2026-06-13
 
-**Phase 1 MVP built (translate-only, both browsers), not yet hardware-tested.**
+**Status now lives in `HANDOVER.md` (the 9-section snapshot) — read it first.**
+The notes below are the original v1 scaffold tour; the project has since grown
+into a full-screen multi-column comparison reader (see HANDOVER).
+Original note: Phase 1 MVP built (translate-only, both browsers), not yet hardware-tested.
 The full extension is scaffolded and `web-ext lint`-clean. It needs a real
 browser run on the Mac mini's GUI session to confirm the Chrome on-device
 Translator path end-to-end (Phase 0 gate in the plan).
